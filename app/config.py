@@ -25,6 +25,10 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 CACHE_DIR = BASE_DIR / "app" / "data"
 CACHE_DIR.mkdir(exist_ok=True, parents=True)
 RESUME_CACHE_FILE = CACHE_DIR / "resume_cache.json"
+# The resume is bundled directly in the repo so it's always available,
+# even after Render's free tier wipes the filesystem on restart —
+# no manual upload needed in production.
+BUNDLED_RESUME_PATH = BASE_DIR / "app" / "data" / "resume.pdf"
 
 # Allowed origins for CORS. In production this should be your actual
 # deployed frontend URL, not "*".

@@ -1,8 +1,7 @@
 import logging
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
-
-from app.config import RESUME_CACHE_FILE, UPLOAD_DIR
+from app.config import RESUME_CACHE_FILE, UPLOAD_DIR, BUNDLED_RESUME_PATH
 from app.models.resume import ChatRequest, ChatResponse, Resume, ResumeStatusResponse
 from app.services.chat_service import ask_candidate
 from app.services.pdf_service import extract_text_from_pdf
@@ -47,21 +46,19 @@ def resume_status():
 
 @router.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
-    """
-    Answers a question about the candidate. Uses the cached parsed
-    resume if available, so this does NOT re-run the parser on every
-    message - only the actual Q&A call hits the LLM here.
-    """
-    if not RESUME_CACHE_FILE.exists():
+    # If someone manually uploaded a resume this session, prefer that.
+    # Otherwise, fall back to the resume bundled in the repo — this
+    # guarantees the assistant always has data, even right after a
+    # fresh deploy or a free-tier restart that wiped uploaded files.
+    pdf_path = RESUME_PDF_PATH if RESUME_PDF_PATH.exists() else BUNDLED_RESUME_PATH
+
+    if not pdf_path.exists():
         raise HTTPException(
             status_code=404,
-            detail="No resume has been uploaded yet. Upload one via /resume/upload first.",
+            detail="No resume is available on the server.",
         )
 
-    if not RESUME_PDF_PATH.exists():
-        raise HTTPException(status_code=404, detail="Resume file is missing on the server.")
-
-    resume_text = extract_text_from_pdf(RESUME_PDF_PATH)
+    resume_text = extract_text_from_pdf(pdf_path)
     resume = get_or_parse_resume(resume_text)  # uses cache, no re-parse
 
     answer = ask_candidate(request.question, resume)
